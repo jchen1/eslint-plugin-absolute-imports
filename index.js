@@ -1,15 +1,24 @@
-'use strict';
+"use strict";
 
-const fs = require('fs');
-const _ = require('lodash');
-const path = require('path');
+const fs = require("fs");
+
+function has(map, path) {
+  let inner = map;
+  for (step of path.split(".")) {
+    inner = map[step];
+    if (inner === undefined) {
+      return false;
+    }
+  }
+  return true;
+}
 
 function findDirWithFile(filename) {
   let dir = path.resolve(filename);
 
   do {
     dir = path.dirname(dir);
-  } while (!fs.existsSync(path.join(dir, filename)) && dir !== '/');
+  } while (!fs.existsSync(path.join(dir, filename)) && dir !== "/");
 
   if (!fs.existsSync(path.join(dir, filename))) {
     return;
@@ -19,16 +28,20 @@ function findDirWithFile(filename) {
 }
 
 function getBaseUrl(baseDir) {
-  let url = '';
+  let url = "";
 
-  if (fs.existsSync(path.join(baseDir, 'tsconfig.json'))) {
-    const tsconfig = JSON.parse(fs.readFileSync(path.join(baseDir, 'tsconfig.json')));
-    if (_.has(tsconfig, 'compilerOptions.baseUrl')) {
+  if (fs.existsSync(path.join(baseDir, "tsconfig.json"))) {
+    const tsconfig = JSON.parse(
+      fs.readFileSync(path.join(baseDir, "tsconfig.json"))
+    );
+    if (has(tsconfig, "compilerOptions.baseUrl")) {
       url = tsconfig.compilerOptions.baseUrl;
     }
-  } else if (fs.existsSync(path.join(baseDir, 'jsconfig.json'))) {
-    const jsconfig = JSON.parse(fs.readFileSync(path.join(baseDir, 'jsconfig.json')));
-    if (_.has(jsconfig, 'compilerOptions.baseUrl')) {
+  } else if (fs.existsSync(path.join(baseDir, "jsconfig.json"))) {
+    const jsconfig = JSON.parse(
+      fs.readFileSync(path.join(baseDir, "jsconfig.json"))
+    );
+    if (has(jsconfig, "compilerOptions.baseUrl")) {
       url = jsconfig.compilerOptions.baseUrl;
     }
   }
@@ -37,25 +50,23 @@ function getBaseUrl(baseDir) {
 }
 
 module.exports.rules = {
-  'only-absolute-imports': {
+  "only-absolute-imports": {
     meta: {
       fixable: true,
     },
     create: function (context) {
-      const baseDir = findDirWithFile('package.json');
+      const baseDir = findDirWithFile("package.json");
       const baseUrl = getBaseUrl(baseDir);
 
       return {
         ImportDeclaration(node) {
           const source = node.source.value;
-          if (!source) {
-            console.log(node);
-            console.log(node.source);
-          }
-          if (source.startsWith('.')) {
+          if (source.startsWith(".")) {
             const filename = context.getFilename();
 
-            const absolutePath = path.normalize(path.join(path.dirname(filename), source));
+            const absolutePath = path.normalize(
+              path.join(path.dirname(filename), source)
+            );
             const expectedPath = path.relative(baseUrl, absolutePath);
 
             if (source !== expectedPath) {
@@ -67,16 +78,6 @@ module.exports.rules = {
                 },
               });
             }
-
-            // console.log(basename, dirname);
-            // const importRoot = path.join();
-            // const filename = context.getFilename();
-            // //   console.log(path.basename())
-            // //   console.log(path.relative(filename))
-
-            // //   if (source.startsWith())
-            // console.log(context.getFilename());
-            // console.log('my source is...' + source);
           }
         },
       };
