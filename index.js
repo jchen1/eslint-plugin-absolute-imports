@@ -1,11 +1,12 @@
 "use strict";
 
 const fs = require("fs");
+const path = require("path");
 
 function has(map, path) {
   let inner = map;
-  for (step of path.split(".")) {
-    inner = map[step];
+  for (const step of path.split(".")) {
+    inner = inner[step];
     if (inner === undefined) {
       return false;
     }
