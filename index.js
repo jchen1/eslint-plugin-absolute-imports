@@ -73,9 +73,9 @@ module.exports.rules = {
             if (source !== expectedPath) {
               context.report({
                 node,
-                message: `Relative imports are not allowed. Use \`${expectedPath}\` instead of \`${source}\`.`,
+                message: `Relative imports are not allowed. Use \`${expectedPath.replace(/\\/g, "/")}\` instead of \`${source}\`.`,
                 fix: function (fixer) {
-                  return fixer.replaceText(node.source, `'${expectedPath}'`);
+                  return fixer.replaceText(node.source, `'@/${expectedPath.replace(/\\/g, "/")}'`);
                 },
               });
             }
