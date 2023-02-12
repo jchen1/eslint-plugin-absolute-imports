@@ -70,7 +70,7 @@ function getBaseUrlAndPaths(baseDir) {
 function getExpectedPath(absolutePath, baseUrl, reversedPaths) {
   const relativeToBasePath = path.relative(baseUrl, absolutePath);
   for (let prefix of Object.keys(reversedPaths)) {
-    const aliasPath = reversedPaths[path];
+    const aliasPath = reversedPaths[prefix];
     // assuming they are either a full path or a path ends with /*, which are the two standard cases
     const importPrefix = prefix.endsWith("/*") ? prefix.replace("/*", "") : prefix;
     const aliasImport = aliasPath.endsWith("/*") ? aliasPath.replace("/*", "") : aliasPath;
