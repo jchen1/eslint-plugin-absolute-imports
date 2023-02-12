@@ -28,8 +28,19 @@ function findDirWithFile(filename) {
   return dir;
 }
 
-function getBaseUrl(baseDir) {
+function reversePaths(paths) {
+  const reversed = {};
+  for (let key of Object.keys(paths)) {
+    for (let path of paths[key]) {
+      reversed[path] = key;
+    }
+  }
+  return reversed;
+}
+
+function getBaseUrlAndPaths(baseDir) {
   let url = "";
+  let paths = {};
 
   if (fs.existsSync(path.join(baseDir, "tsconfig.json"))) {
     const tsconfig = JSON.parse(
@@ -38,6 +49,9 @@ function getBaseUrl(baseDir) {
     if (has(tsconfig, "compilerOptions.baseUrl")) {
       url = tsconfig.compilerOptions.baseUrl;
     }
+    if (has(tsconfig, "compilerOptions.paths")) {
+      paths = tsconfig.compilerOptions.paths;
+    }
   } else if (fs.existsSync(path.join(baseDir, "jsconfig.json"))) {
     const jsconfig = JSON.parse(
       fs.readFileSync(path.join(baseDir, "jsconfig.json"))
@@ -45,9 +59,26 @@ function getBaseUrl(baseDir) {
     if (has(jsconfig, "compilerOptions.baseUrl")) {
       url = jsconfig.compilerOptions.baseUrl;
     }
+    if (has(jsconfig, "compilerOptions.paths")) {
+      paths = jsconfig.compilerOptions.paths;
+    }
   }
 
-  return path.join(baseDir, url);
+  return [path.join(baseDir, url), reversePaths(paths)];
+}
+
+function getExpectedPath(absolutePath, baseUrl, reversedPaths) {
+  const relativeToBasePath = path.relative(baseUrl, absolutePath);
+  for (let prefix of Object.keys(reversedPaths)) {
+    const aliasPath = reversedPaths[path];
+    // assuming they are either a full path or a path ends with /*, which are the two standard cases
+    const importPrefix = prefix.endsWith("/*") ? prefix.replace("/*", "") : prefix;
+    const aliasImport = aliasPath.endsWith("/*") ? aliasPath.replace("/*", "") : aliasPath;
+    if (relativeToBasePath.startsWith(importPrefix)) {
+      return relativeToBasePath.replace(importPrefix, aliasImport);
+    }
+  }
+  return relativeToBasePath;
 }
 
 module.exports.rules = {
@@ -57,7 +88,8 @@ module.exports.rules = {
     },
     create: function (context) {
       const baseDir = findDirWithFile("package.json");
-      const baseUrl = getBaseUrl(baseDir);
+      const [baseUrl, paths] = getBaseUrlAndPaths(baseDir);
+      const reversedPaths = reversePaths(paths);
 
       return {
         ImportDeclaration(node) {
@@ -68,7 +100,41 @@ module.exports.rules = {
             const absolutePath = path.normalize(
               path.join(path.dirname(filename), source)
             );
-            const expectedPath = path.relative(baseUrl, absolutePath);
+            const expectedPath = getExpectedPath(absolutePath, baseUrl, reversedPaths);
+
+            if (source !== expectedPath) {
+              context.report({
+                node,
+                message: `Relative imports are not allowed. Use \`${expectedPath}\` instead of \`${source}\`.`,
+                fix: function (fixer) {
+                  return fixer.replaceText(node.source, `'${expectedPath}'`);
+                },
+              });
+            }
+          }
+        },
+      };
+    },
+  },
+  "no-relative-parent-imports": {
+    meta: {
+      fixable: true,
+    },
+    create: function (context) {
+      const baseDir = findDirWithFile("package.json");
+      const [baseUrl, paths] = getBaseUrlAndPaths(baseDir);
+      const reversedPaths = reversePaths(paths);
+
+      return {
+        ImportDeclaration(node) {
+          const source = node.source.value;
+          if (source.startsWith("../")) {
+            const filename = context.getFilename();
+
+            const absolutePath = path.normalize(
+              path.join(path.dirname(filename), source)
+            );
+            const expectedPath = getExpectedPath(absolutePath, baseUrl, reversedPaths);
 
             if (source !== expectedPath) {
               context.report({
