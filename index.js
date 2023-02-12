@@ -75,7 +75,7 @@ function getExpectedPath(absolutePath, baseUrl, reversedPaths) {
     const importPrefix = prefix.endsWith("/*") ? prefix.replace("/*", "") : prefix;
     const aliasImport = aliasPath.endsWith("/*") ? aliasPath.replace("/*", "") : aliasPath;
     if (relativeToBasePath.startsWith(importPrefix)) {
-      return relativeToBasePath.replace(importPrefix, aliasImport);
+      return `${aliasImport}${relativeToBasePath.slice(importPrefix.length)}`;
     }
   }
   return relativeToBasePath;
