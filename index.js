@@ -28,7 +28,7 @@ function findDirWithFile(filename) {
   return dir;
 }
 
-function reversePaths(paths) {
+function getImportPrefixToAlias(paths) {
   const reversed = {};
   for (let key of Object.keys(paths)) {
     for (let path of paths[key]) {
@@ -64,13 +64,13 @@ function getBaseUrlAndPaths(baseDir) {
     }
   }
 
-  return [path.join(baseDir, url), reversePaths(paths)];
+  return [path.join(baseDir, url), paths];
 }
 
-function getExpectedPath(absolutePath, baseUrl, reversedPaths) {
+function getExpectedPath(absolutePath, baseUrl, importPrefixToAlias, onlyPathAliases) {
   const relativeToBasePath = path.relative(baseUrl, absolutePath);
-  for (let prefix of Object.keys(reversedPaths)) {
-    const aliasPath = reversedPaths[prefix];
+  for (let prefix of Object.keys(importPrefixToAlias)) {
+    const aliasPath = importPrefixToAlias[prefix];
     // assuming they are either a full path or a path ends with /*, which are the two standard cases
     const importPrefix = prefix.endsWith("/*") ? prefix.replace("/*", "") : prefix;
     const aliasImport = aliasPath.endsWith("/*") ? aliasPath.replace("/*", "") : aliasPath;
@@ -78,18 +78,28 @@ function getExpectedPath(absolutePath, baseUrl, reversedPaths) {
       return `${aliasImport}${relativeToBasePath.slice(importPrefix.length)}`;
     }
   }
-  return relativeToBasePath;
+  return !onlyPathAliases ? relativeToBasePath : null;
 }
 
 module.exports.rules = {
   "only-absolute-imports": {
     meta: {
       fixable: true,
+      schema: [
+        {
+          type: 'object',
+          properties: {
+            onlyPathAliases: {
+              type: 'boolean',
+            }
+          }
+        }
+      ]
     },
     create: function (context) {
       const baseDir = findDirWithFile("package.json");
       const [baseUrl, paths] = getBaseUrlAndPaths(baseDir);
-      const reversedPaths = reversePaths(paths);
+      const importPrefixToAlias = getImportPrefixToAlias(paths);
 
       return {
         ImportDeclaration(node) {
@@ -100,9 +110,9 @@ module.exports.rules = {
             const absolutePath = path.normalize(
               path.join(path.dirname(filename), source)
             );
-            const expectedPath = getExpectedPath(absolutePath, baseUrl, reversedPaths);
+            const expectedPath = getExpectedPath(absolutePath, baseUrl, importPrefixToAlias, paths);
 
-            if (source !== expectedPath) {
+            if (expectedPath && source !== expectedPath) {
               context.report({
                 node,
                 message: `Relative imports are not allowed. Use \`${expectedPath}\` instead of \`${source}\`.`,
@@ -119,27 +129,40 @@ module.exports.rules = {
   "no-relative-parent-imports": {
     meta: {
       fixable: true,
+      schema: [
+        {
+          type: 'object',
+          properties: {
+            onlyPathAliases: {
+              type: 'boolean',
+            }
+          }
+        }
+      ]
     },
     create: function (context) {
+      const options = context.options[0] || {};
+      const onlyPathAliases = options.onlyPathAliases || false;
+
       const baseDir = findDirWithFile("package.json");
       const [baseUrl, paths] = getBaseUrlAndPaths(baseDir);
-      const reversedPaths = reversePaths(paths);
+      const importPrefixToAlias = getImportPrefixToAlias(paths);
 
       return {
         ImportDeclaration(node) {
           const source = node.source.value;
-          if (source.startsWith("../")) {
+          if (source.startsWith("..")) {
             const filename = context.getFilename();
 
             const absolutePath = path.normalize(
               path.join(path.dirname(filename), source)
             );
-            const expectedPath = getExpectedPath(absolutePath, baseUrl, reversedPaths);
+            const expectedPath = getExpectedPath(absolutePath, baseUrl, importPrefixToAlias, onlyPathAliases);
 
-            if (source !== expectedPath) {
+            if (expectedPath && source !== expectedPath) {
               context.report({
                 node,
-                message: `Relative imports are not allowed. Use \`${expectedPath}\` instead of \`${source}\`.`,
+                message: `Relative imports from parent directories are not allowed. Use \`${expectedPath}\` instead of \`${source}\`.`,
                 fix: function (fixer) {
                   return fixer.replaceText(node.source, `'${expectedPath}'`);
                 },
