@@ -12,13 +12,13 @@ You must define `baseUrl` and `paths` (optional) in either `tsconfig.json` or `j
 
 ## Setup
 
-- `npm i --save-dev eslint-plugin-absolute-imports`
+- `npm i --save-dev eslint-plugin-import-typescript`
 - Add `eslint-plugin-import-typescript` to your eslint `plugins` section
 - Add one of the supported rules below to your eslint `rules` section.
 
 Example:
 ```
-  plugins: ['eslint-plugin-absolute-imports'],
+  plugins: ['eslint-plugin-import-typescript'],
   rules: [
     'import-typescript/no-relative-parent-imports': ['error'],
   ]
