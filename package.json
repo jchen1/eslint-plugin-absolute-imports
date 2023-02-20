@@ -1,24 +1,28 @@
 {
-  "name": "eslint-plugin-absolute-imports",
+  "name": "eslint-plugin-import-typescript",
   "version": "0.0.3",
   "main": "index.js",
   "dependencies": {},
-  "description": "Eslint rule enforcing absolute imports",
+  "description": "Eslint rule enforcing supporting typescript absolute imports and paths",
   "license": "MIT",
   "author": {
-    "email": "hello@jeff.yt",
-    "name": "Jeff Chen",
-    "url": "https://www.jeffchen.dev"
+    "email": "hdoan741@gmail.com",
+    "name": "Harry Doan",
+    "url": "https://github.com/hdoan741"
   },
   "categories": [
     "Linters"
   ],
   "repository": {
-    "url": "https://www.github.com/jchen1/eslint-plugin-absolute-imports"
+    "url": "https://github.com/hdoan741/eslint-plugin-absolute-imports"
   },
   "keywords": [
     "eslint",
     "imports",
-    "eslint-plugin"
+    "absolute",
+    "relative",
+    "eslint-plugin",
+    "typescript",
+    "paths"
   ]
 }
