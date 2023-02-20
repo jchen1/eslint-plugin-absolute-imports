@@ -67,110 +67,101 @@ function getBaseUrlAndPaths(baseDir) {
   return [path.join(baseDir, url), paths];
 }
 
-function getExpectedPath(absolutePath, baseUrl, importPrefixToAlias, onlyPathAliases) {
+function getExpectedPath(absolutePath, baseUrl, importPrefixToAlias, onlyPathAliases, onlyAbsoluteImports) {
   const relativeToBasePath = path.relative(baseUrl, absolutePath);
-  for (let prefix of Object.keys(importPrefixToAlias)) {
-    const aliasPath = importPrefixToAlias[prefix];
-    // assuming they are either a full path or a path ends with /*, which are the two standard cases
-    const importPrefix = prefix.endsWith("/*") ? prefix.replace("/*", "") : prefix;
-    const aliasImport = aliasPath.endsWith("/*") ? aliasPath.replace("/*", "") : aliasPath;
-    if (relativeToBasePath.startsWith(importPrefix)) {
-      return `${aliasImport}${relativeToBasePath.slice(importPrefix.length)}`;
+  if (!onlyAbsoluteImports) {
+    for (let prefix of Object.keys(importPrefixToAlias)) {
+      const aliasPath = importPrefixToAlias[prefix];
+      // assuming they are either a full path or a path ends with /*, which are the two standard cases
+      const importPrefix = prefix.endsWith("/*") ? prefix.replace("/*", "") : prefix;
+      const aliasImport = aliasPath.endsWith("/*") ? aliasPath.replace("/*", "") : aliasPath;
+      if (relativeToBasePath.startsWith(importPrefix)) {
+        return `${aliasImport}${relativeToBasePath.slice(importPrefix.length)}`;
+      }
     }
   }
-  return !onlyPathAliases ? relativeToBasePath : null;
+  if (!onlyPathAliases) {
+    return relativeToBasePath;
+  }
+}
+
+const optionsSchema = {
+  type: 'object',
+  properties: {
+    onlyPathAliases: {
+      type: 'boolean',
+    },
+    onlyAbsoluteImports: {
+      type: 'boolean',
+    },
+  }
+}
+
+function generateRule(context, errorMessagePrefix, importPathConditionCallback) {
+  const options = context.options[0] || {};
+  const onlyPathAliases = options.onlyPathAliases || false;
+  const onlyAbsoluteImports = options.onlyAbsoluteImports || false;
+
+  const baseDir = findDirWithFile("package.json");
+  const [baseUrl, paths] = getBaseUrlAndPaths(baseDir);
+  const importPrefixToAlias = getImportPrefixToAlias(paths);
+
+  return {
+    ImportDeclaration(node) {
+      const source = node.source.value;
+      if (importPathConditionCallback(source)) {
+        const filename = context.getFilename();
+
+        const absolutePath = path.normalize(
+          path.join(path.dirname(filename), source)
+        );
+        const expectedPath = getExpectedPath(
+          absolutePath, 
+          baseUrl, 
+          importPrefixToAlias, 
+          onlyPathAliases,
+          onlyAbsoluteImports,
+        );
+
+        if (expectedPath && source !== expectedPath) {
+          context.report({
+            node,
+            message: `${errorMessagePrefix}. Use \`${expectedPath}\` instead of \`${source}\`.`,
+            fix: function (fixer) {
+              return fixer.replaceText(node.source, `'${expectedPath}'`);
+            },
+          });
+        }
+      }
+    },
+  };
 }
 
 module.exports.rules = {
-  "only-absolute-imports": {
+  "no-relative-import": {
     meta: {
       fixable: true,
-      schema: [
-        {
-          type: 'object',
-          properties: {
-            onlyPathAliases: {
-              type: 'boolean',
-            }
-          }
-        }
-      ]
+      schema: [optionsSchema]
     },
     create: function (context) {
-      const baseDir = findDirWithFile("package.json");
-      const [baseUrl, paths] = getBaseUrlAndPaths(baseDir);
-      const importPrefixToAlias = getImportPrefixToAlias(paths);
-
-      return {
-        ImportDeclaration(node) {
-          const source = node.source.value;
-          if (source.startsWith(".")) {
-            const filename = context.getFilename();
-
-            const absolutePath = path.normalize(
-              path.join(path.dirname(filename), source)
-            );
-            const expectedPath = getExpectedPath(absolutePath, baseUrl, importPrefixToAlias, paths);
-
-            if (expectedPath && source !== expectedPath) {
-              context.report({
-                node,
-                message: `Relative imports are not allowed. Use \`${expectedPath}\` instead of \`${source}\`.`,
-                fix: function (fixer) {
-                  return fixer.replaceText(node.source, `'${expectedPath}'`);
-                },
-              });
-            }
-          }
-        },
-      };
+      return generateRule(
+        context, 
+        "Relative imports are not allowed",
+        (source) => source.startsWith("."),
+      );
     },
   },
   "no-relative-parent-imports": {
     meta: {
       fixable: true,
-      schema: [
-        {
-          type: 'object',
-          properties: {
-            onlyPathAliases: {
-              type: 'boolean',
-            }
-          }
-        }
-      ]
+      schema: [optionsSchema]
     },
     create: function (context) {
-      const options = context.options[0] || {};
-      const onlyPathAliases = options.onlyPathAliases || false;
-
-      const baseDir = findDirWithFile("package.json");
-      const [baseUrl, paths] = getBaseUrlAndPaths(baseDir);
-      const importPrefixToAlias = getImportPrefixToAlias(paths);
-
-      return {
-        ImportDeclaration(node) {
-          const source = node.source.value;
-          if (source.startsWith("..")) {
-            const filename = context.getFilename();
-
-            const absolutePath = path.normalize(
-              path.join(path.dirname(filename), source)
-            );
-            const expectedPath = getExpectedPath(absolutePath, baseUrl, importPrefixToAlias, onlyPathAliases);
-
-            if (expectedPath && source !== expectedPath) {
-              context.report({
-                node,
-                message: `Relative imports from parent directories are not allowed. Use \`${expectedPath}\` instead of \`${source}\`.`,
-                fix: function (fixer) {
-                  return fixer.replaceText(node.source, `'${expectedPath}'`);
-                },
-              });
-            }
-          }
-        },
-      };
+      return generateRule(
+        context,
+        "Relative imports from parent directories are not allowed",
+        (source) => source.startsWith(".."),
+      )
     },
   },
 };
