@@ -1,8 +1,10 @@
 {
   "name": "eslint-plugin-import-typescript",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "index.js",
-  "dependencies": {},
+  "dependencies": {
+    "jsonc-parser": "^3.2.0"
+  },
   "description": "Eslint rule enforcing supporting typescript absolute imports and paths",
   "license": "MIT",
   "author": {

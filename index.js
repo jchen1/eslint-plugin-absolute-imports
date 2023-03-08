@@ -2,6 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const jsonParser = require("jsonc-parser");
 
 function has(map, path) {
   let inner = map;
@@ -43,8 +44,8 @@ function getBaseUrlAndPaths(baseDir) {
   let paths = {};
 
   if (fs.existsSync(path.join(baseDir, "tsconfig.json"))) {
-    const tsconfig = JSON.parse(
-      fs.readFileSync(path.join(baseDir, "tsconfig.json"))
+    const tsconfig = jsonParser.parse(
+      fs.readFileSync(path.join(baseDir, "tsconfig.json")).toString()
     );
     if (has(tsconfig, "compilerOptions.baseUrl")) {
       url = tsconfig.compilerOptions.baseUrl;
@@ -53,8 +54,8 @@ function getBaseUrlAndPaths(baseDir) {
       paths = tsconfig.compilerOptions.paths;
     }
   } else if (fs.existsSync(path.join(baseDir, "jsconfig.json"))) {
-    const jsconfig = JSON.parse(
-      fs.readFileSync(path.join(baseDir, "jsconfig.json"))
+    const jsconfig = jsonParser.parse(
+      fs.readFileSync(path.join(baseDir, "jsconfig.json")).toString()
     );
     if (has(jsconfig, "compilerOptions.baseUrl")) {
       url = jsconfig.compilerOptions.baseUrl;
